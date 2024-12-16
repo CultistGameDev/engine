@@ -2,6 +2,7 @@ package main
 
 import "core:c"
 import "core:fmt"
+import "core:os"
 
 import shader "engine/shader"
 
@@ -12,10 +13,13 @@ ENGINE_NAME: string : "Engine"
 ENGINE_MAJOR_VERSION: int : 0
 ENGINE_MINOR_VERSION: int : 1
 
+
 Context :: struct {
 	window:   glfw.WindowHandle,
 	instance: vk.Instance,
 }
+
+VALIDATION_LAYERS := [?]cstring{"VK_LAYER_KHRONOS_validation"}
 
 window_width: i32 = 800
 window_height: i32 = 600
@@ -84,11 +88,33 @@ createInstance :: proc(using ctx: ^Context) {
 	createInfo.pApplicationInfo = &appInfo
 	createInfo.enabledExtensionCount = cast(u32)len(glfwExtensions)
 	createInfo.ppEnabledExtensionNames = raw_data(glfwExtensions)
-	createInfo.enabledLayerCount = 0
 
+	when ODIN_DEBUG {
+		layerCount: u32
+		vk.EnumerateInstanceLayerProperties(&layerCount, nil)
+		layers := make([]vk.LayerProperties, layerCount)
+		vk.EnumerateInstanceLayerProperties(&layerCount, raw_data(layers))
+
+		outer: for name in VALIDATION_LAYERS {
+			for layer in layers {
+				if name == cstring(&layer.layerName[0]) do continue outer
+			}
+			fmt.eprintfln("ERROR: Validation layer %1 not available", name)
+			os.exit(1)
+		}
+
+		createInfo.ppEnabledLayerNames = &VALIDATION_LAYERS[0]
+		createInfo.enabledLayerCount = len(VALIDATION_LAYERS)
+		fmt.println("Validation Layers Loaded")
+	} else {
+		createInfo.enabledLayerCount = 0
+	}
 	if vk.CreateInstance(&createInfo, nil, &instance) != .SUCCESS {
 		fmt.println("Failed to create instance")
+		return
 	}
+
+	fmt.println("Instance Created")
 }
 
 mainLoop :: proc(using ctx: ^Context) {
