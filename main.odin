@@ -17,17 +17,32 @@ GL_MINOR_VERSION: c.int : 0
 
 verticies := [?]f32 {
 	// A
-	-0.5,
-	-0.5,
+	0.5,
+	0.5,
 	0.0,
 	// B
 	0.5,
 	-0.5,
 	0.0,
 	// C
+	-0.5,
+	-0.5,
 	0.0,
+	// D
+	-0.5,
 	0.5,
 	0.0,
+}
+
+indices := [?]u32 {
+	// A
+	0,
+	1,
+	3,
+	// B
+	1,
+	2,
+	3,
 }
 
 VERTEX_SHADER: cstring = `#version 400 core
@@ -80,15 +95,21 @@ main :: proc() {
 
 	gl.Viewport(0, 0, 800, 600)
 
-	vao, vbo: u32
+	vao, vbo, ebo: u32
 	gl.GenVertexArrays(1, &vao)
 	gl.BindVertexArray(vao)
 
 	gl.GenBuffers(1, &vbo)
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
 	gl.BufferData(gl.ARRAY_BUFFER, size_of(verticies), cast(rawptr)&verticies, gl.STATIC_DRAW)
+
+	gl.GenBuffers(1, &ebo)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, ebo)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, size_of(indices), cast(rawptr)&indices, gl.STATIC_DRAW)
+
 	gl.VertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * size_of(f32), cast(uintptr)0)
 	gl.EnableVertexAttribArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindVertexArray(0)
 
 	program := shader.CompileProgram(&VERTEX_SHADER, &FRAGMENT_SHADER)
@@ -99,7 +120,8 @@ main :: proc() {
 
 		gl.UseProgram(program)
 		gl.BindVertexArray(vao)
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, nil)
+		gl.BindVertexArray(0)
 
 		glfw.SwapBuffers(window)
 		glfw.PollEvents()
